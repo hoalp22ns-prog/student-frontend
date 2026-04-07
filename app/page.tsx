@@ -18,6 +18,22 @@ interface FormData {
   age: string;
 }
 
+interface HealthStatus {
+  primaryDbStatus?: string;
+  secondaryDbStatus?: string;
+  syncStatus?: string;
+  primaryRecordCount?: number;
+  secondaryRecordCount?: number;
+  lastSyncTime?: string;
+  status?: string;
+}
+
+interface AppError {
+  message: string;
+  status?: number;
+  timestamp: number;
+}
+
 export default function Home() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,17 +42,99 @@ export default function Home() {
   const [form, setForm] = useState<FormData>({ 
     name: '', email: '', phone: '', age: '' 
   });
+  
+  // 🆕 Error & Health Status States
+  const [error, setError] = useState<AppError | null>(null);
+  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
 
-  useEffect(() => { loadStudents(); }, []);
+  useEffect(() => { 
+    loadStudents();
+    checkHealth();
+  }, []);
 
   const loadStudents = async () => {
     try {
+      setError(null);
       const res = await studentApi.getAll();
       setStudents(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `❌ Không thể tải danh sách sinh viên: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
+      console.error('Error loading students:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🆕 Check Health Status (Render + Railway)
+  const checkHealth = async () => {
+    try {
+      setIsCheckingHealth(true);
+      const res = await studentApi.healthDetailed();
+      setHealthStatus(res.data);
+      setError(null);
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `⚠️ Không thể kết nối backend: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
+      console.error('Health check failed:', err);
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
+
+  // 🆕 Trigger Manual Sync
+  const triggerSync = async () => {
+    if (!confirm('Bạn có chắc muốn đồng bộ dữ liệu Render → Railway?')) return;
+    try {
+      setIsSyncing(true);
+      await studentApi.manualSync();
+      setError(null);
+      alert('✅ Đã bắt đầu đồng bộ dữ liệu!');
+      setTimeout(() => checkHealth(), 2000);
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `❌ Lỗi đồng bộ: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // 🆕 Check Consistency
+  const checkConsistency = async () => {
+    try {
+      setIsCheckingConsistency(true);
+      const res = await studentApi.consistencyCheck();
+      const result = res.data;
+      if (result.syncStatus === 'SYNCHRONIZED') {
+        alert('✅ Dữ liệu Render & Railway đã đồng bộ!');
+      } else {
+        alert(`⚠️ Dữ liệu không đồng bộ:\nRender: ${result.primaryRecordCount}\nRailway: ${result.secondaryRecordCount}`);
+      }
+      setError(null);
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `❌ Lỗi kiểm tra: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
+    } finally {
+      setIsCheckingConsistency(false);
     }
   };
 
@@ -46,6 +144,7 @@ export default function Home() {
       return;
     }
     try {
+      setError(null);
       if (editStudent) {
         await studentApi.update(editStudent.id, form);
       } else {
@@ -55,15 +154,30 @@ export default function Home() {
       setShowForm(false);
       setEditStudent(null);
       loadStudents();
-    } catch (err) {
-      alert('Có lỗi xảy ra!');
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `❌ Lỗi lưu dữ liệu: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Bạn có chắc muốn xóa?')) return;
-    await studentApi.delete(id);
-    loadStudents();
+    try {
+      setError(null);
+      await studentApi.delete(id);
+      loadStudents();
+    } catch (err: any) {
+      const errorMsg = err.message;
+      setError({
+        message: `❌ Lỗi xóa dữ liệu: ${errorMsg}`,
+        status: err.status,
+        timestamp: Date.now(),
+      });
+    }
   };
 
   const handleEdit = (student: Student) => {
@@ -80,6 +194,87 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-5xl mx-auto">
+
+        {/* 🆕 Error Notification - Shows detailed error messages */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="font-semibold">{error.message}</div>
+            {error.status && <div className="text-sm text-red-600 mt-1">Status: {error.status}</div>}
+            <button
+              onClick={() => setError(null)}
+              className="text-sm text-red-600 underline mt-2 hover:text-red-800"
+            >
+              Đóng thông báo
+            </button>
+          </div>
+        )}
+
+        {/* 🆕 Health Status Section - Shows Render + Railway status */}
+        <div className="mb-6 p-4 bg-white rounded-xl shadow border border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-700">
+              🔧 Trạng Thái Backend & Databases
+            </h2>
+            <button
+              onClick={checkHealth}
+              disabled={isCheckingHealth}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
+            >
+              {isCheckingHealth ? 'Đang kiểm tra...' : '🔄 Kiểm Tra'}
+            </button>
+          </div>
+
+          {healthStatus ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <div className="text-xs text-gray-500">Render (Primary)</div>
+                <div className={`font-semibold ${healthStatus.primaryDbStatus === 'UP' ? 'text-green-600' : 'text-red-600'}`}>
+                  {healthStatus.primaryDbStatus === 'UP' ? '✅ OK' : '❌ DOWN'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Railway (Secondary)</div>
+                <div className={`font-semibold ${healthStatus.secondaryDbStatus === 'UP' ? 'text-green-600' : 'text-red-600'}`}>
+                  {healthStatus.secondaryDbStatus === 'UP' ? '✅ OK' : '❌ DOWN'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Sync Status</div>
+                <div className={`font-semibold ${healthStatus.syncStatus === 'SYNCHRONIZED' ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {healthStatus.syncStatus === 'SYNCHRONIZED' ? '✅ OK' : '⚠️ PENDING'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Records</div>
+                <div className="font-semibold text-gray-700">
+                  {healthStatus.primaryRecordCount} / {healthStatus.secondaryRecordCount}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm">
+              Chưa kiểm tra health. Bấm nút "Kiểm Tra" để xem trạng thái.
+            </div>
+          )}
+
+          {/* 🆕 Admin Actions */}
+          <div className="flex gap-2 mt-4 border-t pt-4">
+            <button
+              onClick={triggerSync}
+              disabled={isSyncing}
+              className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:opacity-50"
+            >
+              {isSyncing ? '⏳ Đồng bộ...' : '🔄 Đồng Bộ (Render→Railway)'}
+            </button>
+            <button
+              onClick={checkConsistency}
+              disabled={isCheckingConsistency}
+              className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:opacity-50"
+            >
+              {isCheckingConsistency ? '⏳ Kiểm tra...' : '✓ Kiểm Tra Consistency'}
+            </button>
+          </div>
+        </div>
 
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
