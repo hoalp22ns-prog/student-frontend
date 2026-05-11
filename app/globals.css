@@ -1,102 +1,53 @@
-/* Global Styles - Plain CSS (No Tailwind) */
-:root {
-  --primary: #0066cc;
-  --primary-hover: #0052a3;
-  --danger: #dc3545;
-  --success: #28a745;
-  --background: #ffffff;
-  --foreground: #171717;
-  --border: #ddd;
-  --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+  }
+
+  h1 {
+    @apply text-4xl font-bold;
+  }
+
+  h2 {
+    @apply text-3xl font-bold;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold;
+  }
+
+  h4 {
+    @apply text-lg font-semibold;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
-}
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-all duration-300;
+  }
 
-/* Layout */
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-300;
+  }
 
-h1 { font-size: 28px; margin-bottom: 16px; font-weight: 600; }
-h2 { font-size: 24px; margin-bottom: 16px; font-weight: 600; }
+  .card {
+    @apply bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm;
+  }
 
-/* Forms */
-form {
-  background: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow);
-}
+  .card-hover {
+    @apply card hover:border-blue-500/50 hover:shadow-2xl transition-all duration-300;
+  }
 
-form label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-form input, form textarea {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 12px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-form input:focus, form textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-}
-
-/* Buttons */
-button, input[type="button"], input[type="submit"] {
-  padding: 8px 16px;
-  margin-right: 8px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 200ms ease;
-}
-
-button.primary {
-  background: var(--primary);
-  color: white;
-}
-
-button.primary:hover {
-  background: var(--primary-hover);
-}
-
-button.danger {
-  background: var(--danger);
-  color: white;
-}
-
-button.danger:hover {
-  background: #c82333;
-}
-
-button.secondary {
-  background: #e9ecef;
-  color: var(--foreground);
+  .input-field {
+    @apply w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all;
+  }
 }
 
 button.secondary:hover {

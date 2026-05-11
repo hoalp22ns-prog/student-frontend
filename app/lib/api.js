@@ -1,80 +1,76 @@
 import axios from 'axios';
 
-// 🔧 Configure API base URL from environment variable
+// 🔧 Configure API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Request interceptor - add logging
+// ✅ Add JWT token to requests
 api.interceptors.request.use(
   (config) => {
-    console.log(`📤 API Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    console.log(`📤 API: ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor - better error handling
+// ✅ Error handling
 api.interceptors.response.use(
   (response) => {
-    console.log(`📥 API Response: ${response.status} ${response.statusText}`);
+    console.log(`✅ Response: ${response.status}`);
     return response;
   },
   (error) => {
-    // Extract detailed error message from backend
-    const errorMessage = error.response?.data?.message || 
-                         error.response?.data?.error || 
-                         error.message || 
-                         'Unknown error occurred';
-    const status = error.response?.status;
-    
-    console.error(`❌ API Error [${status}]: ${errorMessage}`);
-    
-    // Create enriched error object with details
-    const enrichedError = new Error(errorMessage);
-    enrichedError.status = status;
-    enrichedError.originalError = error;
-    
-    return Promise.reject(enrichedError);
+    const errorMsg = error.response?.data?.error || 
+                     error.response?.data?.message || 
+                     error.message;
+    console.error(`❌ Error: ${errorMsg}`);
+    return Promise.reject(new Error(errorMsg));
   }
 );
 
-export const studentApi = {
-  // ========== CRUD OPERATIONS ==========
-  // Lấy tất cả sinh viên
-  getAll: () => api.get('/api/students'),
+// ==========================================
+// 🔐 AUTHENTICATION API
+// ==========================================
+export const authApi = {
+  register: (username, password, role = 'ROLE_USER') =>
+    api.post('/api/auth/register', { username, password, role }),
 
-  // Lấy chi tiết một sinh viên
-  getById: (id) => api.get(`/api/students/${id}`),
-
-  // Thêm sinh viên mới
-  create: (data) => api.post('/api/students', data),
-
-  // Cập nhật sinh viên
-  update: (id, data) => api.put(`/api/students/${id}`, data),
-
-  // Xóa sinh viên
-  delete: (id) => api.delete(`/api/students/${id}`),
-
-  // ========== HEALTH CHECK ENDPOINTS ==========
-  // Simple health ping
-  healthPing: () => api.get('/api/students/health/ping'),
-
-  // Basic health status
-  healthStatus: () => api.get('/api/students/health/status'),
-
-  // Detailed health - shows Render + Railway status
-  healthDetailed: () => api.get('/api/students/health/detailed'),
-
-  // ========== ADMIN ENDPOINTS ==========
-  // Check data consistency between Render and Railway
-  consistencyCheck: () => api.get('/api/students/admin/consistency-check'),
-
-  // Manual trigger sync from Primary (Render) to Secondary (Railway)
-  manualSync: () => api.post('/api/students/admin/sync'),
-
-  // Debug: Get database connection info
-  debugDbInfo: () => api.get('/api/students/debug/db-info'),
+  login: (username, password) =>
+    api.post('/api/auth/login', { username, password }),
 };
+
+// ==========================================
+// 👥 STUDENT API
+// ==========================================
+export const studentApi = {
+  getAll: () => api.get('/api/students'),
+  getById: (id) => api.get(`/api/students/${id}`),
+  create: (data) => api.post('/api/students', data),
+  update: (id, data) => api.put(`/api/students/${id}`, data),
+  delete: (id) => api.delete(`/api/students/${id}`),
+  healthCheck: () => api.get('/api/students/health/status'),
+};
+
+// ==========================================
+// 📊 GRADE API
+// ==========================================
+export const gradeApi = {
+  getAll: () => api.get('/api/grades'),
+  getById: (id) => api.get(`/api/grades/${id}`),
+  getByStudent: (studentId) => api.get(`/api/grades/student/${studentId}`),
+  create: (data) => api.post('/api/grades', data),
+  update: (id, data) => api.put(`/api/grades/${id}`, data),
+  delete: (id) => api.delete(`/api/grades/${id}`),
+};
+
+export default api;
